@@ -1,0 +1,834 @@
+
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AmpèreLab 3D - Simulador de Campo Magnético</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            physicsCyan: '#06b6d4',
+            physicsIndigo: '#6366f1',
+            physicsGreen: '#10b981',
+            physicsAmber: '#f59e0b',
+            darkSlate: '#020617'
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- KaTeX -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+
+  <!-- Three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #020617;
+      overflow: hidden;
+    }
+    .font-display {
+      font-family: 'Space Grotesk', sans-serif;
+    }
+    canvas {
+      display: block;
+      outline: none;
+    }
+    .custom-scroll::-webkit-scrollbar { width: 4px; }
+    .custom-scroll::-webkit-scrollbar-track { background: #0f172a; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+    
+    /* Transiciones de ancho de panel */
+    .transition-all-custom {
+      transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1), border 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+  </style>
+</head>
+<body class="text-slate-100 flex h-screen w-screen overflow-hidden bg-darkSlate">
+
+  <!-- BOTÓN DE APERTURA DE PANEL IZQUIERDO (Se muestra al estar en modo simulación) -->
+  <button id="btn-open-left" onclick="toggleMathPanel()" class="fixed top-24 left-6 z-40 bg-slate-900/90 hover:bg-slate-800 px-4 py-3 rounded-xl border border-slate-700/50 backdrop-blur-md text-physicsCyan hidden shadow-lg shadow-physicsCyan/5 transition-all flex items-center gap-2">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+    </svg>
+    <span class="text-xs font-bold font-display">📚 Ver Teoría Completa</span>
+  </button>
+
+  <!-- BARRA LATERAL IZQUIERDA: Resolución Matemática Completa (Parte de 100% al inicio) -->
+  <aside id="left-sidebar" style="width: 100vw;" class="h-full bg-slate-950/98 border-r border-slate-800/80 flex flex-col overflow-hidden transition-all-custom z-30 flex-shrink-0 relative">
+    
+    <!-- PESTAÑA / MANIJA FLOTANTE PARA RETROCEDER EL PANEL DE TEORÍA -->
+    <button id="toggle-tab" onclick="toggleMathPanel()" class="absolute right-6 top-1/2 -translate-y-1/2 bg-gradient-to-r from-physicsCyan to-physicsIndigo text-slate-950 hover:scale-105 active:scale-95 transition-all duration-250 font-bold text-xs rounded-xl px-5 py-4 shadow-2xl flex items-center gap-2.5 z-50">
+      <span>Ver Simulador 3D</span>
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+      </svg>
+    </button>
+
+    <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 bg-physicsCyan rounded-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-darkSlate" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5s3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+          </div>
+          <div>
+            <h2 class="font-display font-bold text-base tracking-tight">Resolución Matemática Completa</h2>
+            <p class="text-[10px] text-slate-500">Demostraciones Analíticas mediante Integración de Línea</p>
+          </div>
+        </div>
+    </div>
+    
+    <!-- Contenido de la resolución paso a paso -->
+    <div class="flex-grow overflow-y-auto p-6 md:p-10 custom-scroll space-y-8 max-w-4xl mx-auto w-full">
+        
+        <!-- Enunciado Principal -->
+        <div class="bg-slate-900/60 p-6 rounded-2xl border border-slate-800 space-y-3 shadow-xl">
+            <span class="px-2.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-physicsCyan/10 text-physicsCyan border border-physicsCyan/20">Modelo Vectorial del Campo</span>
+            <p class="text-xs md:text-sm text-slate-300 leading-relaxed">
+              Dado un hilo conductor rectilíneo de longitud infinita coincidente con el eje $z$, por el cual circula una corriente constante $I$, el campo de inducción magnética $\vec{B}$ en cualquier punto $P(x,y,z)$ fuera del conductor se expresa como:
+            </p>
+            <div class="bg-slate-950 p-4 rounded-xl border border-slate-850 text-center overflow-x-auto">
+                $$\vec{B} = \frac{\mu_0 I}{2\pi(x^2 + y^2)} (-y, x, 0)$$
+            </div>
+        </div>
+
+        <!-- PASO 1 -->
+        <div class="space-y-3">
+            <div class="flex items-center gap-2.5">
+              <span class="w-7 h-7 rounded bg-physicsCyan/15 text-physicsCyan flex items-center justify-center text-xs font-bold font-display shadow-sm">1</span>
+              <h3 class="text-sm md:text-base font-bold text-white">Verificar que $\vec{B}$ es perpendicular al vector radial</h3>
+            </div>
+            <div class="text-xs md:text-sm text-slate-400 leading-relaxed space-y-2.5 pl-9">
+              <p>El vector de posición radial en el plano horizontal es $\vec{r} = (x, y, 0)$. Realizamos el producto escalar entre el campo $\vec{B}$ y el vector radial $\vec{r}$ para medir su ortogonalidad:</p>
+              <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 overflow-x-auto font-mono text-xs text-slate-300">
+                $$\vec{B} \cdot \vec{r} = \left[ \frac{\mu_0 I}{2\pi(x^2 + y^2)} (-y, x, 0) \right] \cdot (x, y, 0)$$
+                $$\vec{B} \cdot \vec{r} = \frac{\mu_0 I}{2\pi(x^2 + y^2)} \left[ (-y)(x) + (x)(y) + (0)(0) \right]$$
+                $$\vec{B} \cdot \vec{r} = \frac{\mu_0 I}{2\pi(x^2 + y^2)} [ -yx + xy ] = 0$$
+              </div>
+              <p class="text-physicsGreen font-semibold">
+                <span class="inline-block w-1.5 h-1.5 rounded-full bg-physicsGreen align-middle mr-1.5 -mt-0.5"></span>
+                Conclusión: Como el producto escalar es idénticamente nulo ($\vec{B} \cdot \vec{r} = 0$), queda demostrado que el campo magnético $\vec{B}$ es perpendicular al vector radial en todos los puntos del espacio.
+              </p>
+            </div>
+        </div>
+
+        <!-- PASO 2 -->
+        <div class="space-y-3 pt-6 border-t border-slate-900/60">
+            <div class="flex items-center gap-2.5">
+              <span class="w-7 h-7 rounded bg-physicsCyan/15 text-physicsCyan flex items-center justify-center text-xs font-bold font-display shadow-sm">2</span>
+              <h3 class="text-sm md:text-base font-bold text-white">Calcular la circulación sobre una circunferencia de radio $R$</h3>
+            </div>
+            <div class="text-xs md:text-sm text-slate-400 leading-relaxed space-y-2.5 pl-9">
+              <p>Definimos una trayectoria cerrada circular $C$ centrada en el origen con radio constante $R$ en el plano horizontal. Parametrizamos el camino con el ángulo $\theta \in [0, 2\pi]$:</p>
+              <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 overflow-x-auto font-mono text-xs text-slate-300">
+                $$\vec{r}(\theta) = (R\cos\theta, R\sin\theta, 0)$$
+                $$d\vec{l} = \vec{r}'(\theta)d\theta = (-R\sin\theta, R\cos\theta, 0)d\theta$$
+              </div>
+              <p>Sustituyendo las coordenadas espaciales $x = R\cos\theta$ e $y = R\sin\theta$ (donde la identidad trigonométrica nos da $x^2 + y^2 = R^2$) en el campo vectorial $\vec{B}$:</p>
+              <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 overflow-x-auto font-mono text-xs text-slate-300">
+                $$\vec{B}(\theta) = \frac{\mu_0 I}{2\pi R^2} (-R\sin\theta, R\cos\theta, 0)$$
+              </div>
+              <p>Calculamos la integral de línea de circulación a lo largo de este camino cerrado unidimensional:</p>
+              <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 overflow-x-auto font-mono text-xs text-slate-300">
+                $$\oint_C \vec{B} \cdot d\vec{l} = \int_{0}^{2\pi} \left[ \frac{\mu_0 I}{2\pi R^2} (-R\sin\theta, R\cos\theta, 0) \right] \cdot (-R\sin\theta, R\cos\theta, 0) d\theta$$
+                $$\oint_C \vec{B} \cdot d\vec{l} = \int_{0}^{2\pi} \frac{\mu_0 I}{2\pi R^2} \left[ R^2\sin^2\theta + R^2\cos^2\theta \right] d\theta$$
+                $$\oint_C \vec{B} \cdot d\vec{l} = \frac{\mu_0 I}{2\pi} \int_{0}^{2\pi} d\theta = \frac{\mu_0 I}{2\pi} [2\pi] = \mu_0 I$$
+              </div>
+              <p class="text-physicsIndigo font-semibold">
+                <span class="inline-block w-1.5 h-1.5 rounded-full bg-physicsIndigo align-middle mr-1.5 -mt-0.5"></span>
+                Resultado: La circulación es exactamente $\mu_0 I$. Al cambiar el radio $R$ del camino, el campo disminuye proporcionalmente, pero la longitud del recorrido circular aumenta en la misma proporción, compensando el resultado de forma perfecta.
+              </p>
+            </div>
+        </div>
+
+        <!-- PASO 3 -->
+        <div class="space-y-3 pt-6 border-t border-slate-900/60">
+            <div class="flex items-center gap-2.5">
+              <span class="w-7 h-7 rounded bg-physicsCyan/15 text-physicsCyan flex items-center justify-center text-xs font-bold font-display shadow-sm">3</span>
+              <h3 class="text-sm md:text-base font-bold text-white">Aplicar la Ley de Ampère</h3>
+            </div>
+            <div class="text-xs md:text-sm text-slate-400 leading-relaxed space-y-2.5 pl-9">
+              <p>La Ley de Ampère postula que para cualquier curva de integración cerrada $C$:</p>
+              <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 overflow-x-auto font-mono text-xs text-slate-300">
+                $$\oint_C \vec{B} \cdot d\vec{l} = \mu_0 I_{\text{encerrada}}$$
+              </div>
+              <p>Como nuestra trayectoria circular de radio $R$ rodea de manera coaxial al conductor rectilíneo, la corriente neta que atraviesa la superficie abierta delimitada por la curva circular es exactamente $I$. Por lo tanto, la integral calculada en el <strong>Paso 2</strong> demuestra analíticamente el postulado físico.</p>
+            </div>
+        </div>
+
+        <!-- PASO 4 (ENFOQUE EXCLUSIVO EN INTEGRALES DE LÍNEA) -->
+        <div class="space-y-3 pt-6 border-t border-slate-900/60">
+            <div class="flex items-center gap-2.5">
+              <span class="w-7 h-7 rounded bg-physicsCyan/15 text-physicsCyan flex items-center justify-center text-xs font-bold font-display shadow-sm">4</span>
+              <h3 class="text-sm md:text-base font-bold text-white">Discutir si el campo es conservativo mediante integrales de línea</h3>
+            </div>
+            <div class="text-xs md:text-sm text-slate-400 leading-relaxed space-y-2.5 pl-9">
+              <p>Por definición, un campo vectorial continuo $\vec{B}$ es <strong>conservativo</strong> si y solo si la integral de línea (circulación) a lo largo de <strong>cualquier</strong> trayectoria cerrada $C$ es estrictamente nula:</p>
+              <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 overflow-x-auto font-mono text-xs text-slate-300">
+                $$\oint_C \vec{B} \cdot d\vec{l} = 0 \quad \forall \text{ curva cerrada } C$$
+              </div>
+              <p>Sin embargo, en el <strong>Paso 2</strong> comprobamos de manera analítica que para una trayectoria cerrada que enlaza al cable con corriente:</p>
+              <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 overflow-x-auto font-mono text-xs text-slate-300">
+                $$\oint_C \vec{B} \cdot d\vec{l} = \mu_0 I \neq 0$$
+              </div>
+              <p>Al haber encontrado al menos un camino de integración cerrado cuya circulación es distinta de cero, se viola la condición matemática fundamental para la existencia de un potencial escalar continuo.</p>
+              <p class="text-red-400 font-semibold">
+                <span class="inline-block w-1.5 h-1.5 rounded-full bg-red-400 align-middle mr-1.5 -mt-0.5"></span>
+                Conclusión Directa: El campo de inducción magnética $\vec{B}$ NO es un campo conservativo.
+              </p>
+            </div>
+        </div>
+
+        <!-- PASO 5 (ENFOQUE EXCLUSIVO EN INTEGRALES DE LÍNEA) -->
+        <div class="space-y-3 pt-6 border-t border-slate-900/60">
+            <div class="flex items-center gap-2.5">
+              <span class="w-7 h-7 rounded bg-physicsCyan/15 text-physicsCyan flex items-center justify-center text-xs font-bold font-display shadow-sm">5</span>
+              <h3 class="text-sm md:text-base font-bold text-white">Justificar utilizando la dependencia del camino de integración</h3>
+            </div>
+            <div class="text-xs md:text-sm text-slate-400 leading-relaxed space-y-2.5 pl-9">
+              <p>Una propiedad matemática idéntica de los campos conservativos es la <strong>independencia de la trayectoria</strong>: la integral de línea entre dos puntos fijos del espacio $P_1$ y $P_2$ debe ser la misma independientemente del camino elegido para unirlos.</p>
+              <p>Para comprobar que el campo magnético no cumple esta propiedad, consideremos dos trayectorias distintas $C_1$ y $C_2$ que van desde el punto $P_1$ al $P_2$, conformando juntas una trayectoria circular cerrada que envuelve la corriente $I$:</p>
+              <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 overflow-x-auto font-mono text-xs text-slate-300">
+                $$\int_{C_1} \vec{B} \cdot d\vec{l} - \int_{C_2} \vec{B} \cdot d\vec{l} = \oint_{C_1 - C_2} \vec{B} \cdot d\vec{l} = \mu_0 I \neq 0$$
+                $$\int_{C_1} \vec{B} \cdot d\vec{l} \neq \int_{C_2} \vec{B} \cdot d\vec{l}$$
+              </div>
+              <p class="text-physicsGreen font-semibold">
+                <span class="inline-block w-1.5 h-1.5 rounded-full bg-physicsGreen align-middle mr-1.5 -mt-0.5"></span>
+                Justificación por Dependencia de Camino:
+              </p>
+              <p>Puesto que el valor de la integral de línea entre dos puntos depende de si la trayectoria de integración enlaza o no al conductor eléctrico, queda justificado mediante cálculo de integrales de trayectoria que el campo es no conservativo.</p>
+            </div>
+        </div>
+
+        <!-- BOTÓN DE INICIO EXTRA EN LA TEORÍA -->
+        <div class="pt-8 pb-12 flex justify-center">
+            <button onclick="toggleMathPanel()" class="px-6 py-4 bg-gradient-to-r from-physicsCyan to-physicsIndigo text-slate-950 hover:scale-105 active:scale-95 transition-all duration-350 font-bold text-xs rounded-xl shadow-lg shadow-physicsCyan/20 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+                </svg>
+                Iniciar Laboratorio de Simulación 3D
+            </button>
+        </div>
+
+    </div>
+  </aside>
+
+  <!-- ÁREA CENTRAL: Simulación 3D Expansiva -->
+  <main class="flex-grow h-full relative flex flex-col bg-slate-950 overflow-hidden">
+    <!-- Header simulador (Se revela al ocultar la teoría) -->
+    <div class="p-6 z-20 pointer-events-none flex justify-between items-start absolute top-0 left-0 right-0">
+        <div class="pointer-events-auto bg-slate-950/80 p-3 rounded-xl border border-slate-800/60 backdrop-blur-md">
+            <h1 class="text-lg font-display font-bold bg-gradient-to-r from-physicsCyan to-physicsIndigo bg-clip-text text-transparent leading-none">AmpèreLab 3D</h1>
+            <p class="text-[10px] text-slate-500 font-medium mt-1">Simulación Interactiva del Campo Magnético de un Cable Infinito</p>
+        </div>
+        
+        <div class="flex gap-2 pointer-events-auto">
+            <!-- Botón para regresar al modo de estudio completo -->
+            <button onclick="toggleMathPanel()" class="bg-slate-900/90 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-700/50 backdrop-blur-md transition-all text-[11px] font-bold text-physicsCyan flex items-center gap-1.5" title="Ver Explicación Teórica">
+               📚 Teoría
+            </button>
+            <button onclick="toggleFullScreen()" class="bg-slate-900/90 hover:bg-slate-800 p-2 rounded-xl border border-slate-700/50 backdrop-blur-md transition-all text-slate-300" title="Pantalla Completa">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                </svg>
+            </button>
+            <button onclick="resetCamera()" class="bg-slate-900/90 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-700/50 backdrop-blur-md transition-all text-[11px] font-bold text-slate-300">
+                Centrar Cámara
+            </button>
+        </div>
+    </div>
+
+    <!-- CANVAS 3D CONTAINER -->
+    <div id="sim-viewport" class="w-full h-full relative">
+      <!-- El lienzo de Three.js se inyecta aquí -->
+    </div>
+
+    <!-- LEYENDA FLOTANTE INTEGRADA -->
+    <div class="absolute bottom-6 left-6 bg-slate-950/90 border border-slate-800/80 backdrop-blur-xl px-4 py-2.5 rounded-xl flex flex-wrap gap-4 z-20 shadow-2xl">
+        <div class="flex items-center gap-2">
+            <span class="w-3.5 h-1.5 bg-physicsCyan rounded-sm"></span>
+            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Vector Radial $\vec{r}$</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="w-3.5 h-1.5 bg-physicsGreen rounded-sm"></span>
+            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Campo Magnético $\vec{B}$</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="w-3.5 h-1.5 bg-physicsIndigo rounded-sm"></span>
+            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Lazo de Integración $C$</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Flujo de Campo</span>
+        </div>
+    </div>
+
+    <!-- PANEL DE CONTROL AUXILIAR (Se muestra solo si se colapsa la barra derecha) -->
+    <div id="floating-controls" class="absolute bottom-6 right-6 bg-slate-950/90 border border-slate-800/80 backdrop-blur-xl p-4 rounded-xl z-20 shadow-2xl w-64 hidden space-y-3">
+      <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex justify-between">
+        <span>Ajustes Rápidos</span>
+        <span class="text-physicsCyan">Panel Oculto</span>
+      </div>
+      <div>
+        <div class="flex justify-between text-[10px] mb-1">
+          <span class="text-slate-400">Intensidad ($I$)</span>
+          <span id="float-I-val" class="text-physicsCyan font-bold">5.0 A</span>
+        </div>
+        <input type="range" id="float-I" min="-10" max="10" step="0.5" value="5" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-physicsCyan">
+      </div>
+      <div>
+        <div class="flex justify-between text-[10px] mb-1">
+          <span class="text-slate-400">Radio ($R$)</span>
+          <span id="float-R-val" class="text-physicsIndigo font-bold">3.0 m</span>
+        </div>
+        <input type="range" id="float-R" min="1.0" max="6.0" step="0.1" value="3.0" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-physicsIndigo">
+      </div>
+    </div>
+  </main>
+
+  <!-- BOTÓN DE APERTURA DE PANEL DERECHO (FLOTANTE) -->
+  <button id="btn-open-right" onclick="toggleRightSidebar(true)" class="fixed top-24 right-6 z-40 bg-slate-900/90 hover:bg-slate-800 p-2.5 rounded-xl border border-slate-700/50 backdrop-blur-md text-physicsIndigo hidden shadow-lg shadow-physicsIndigo/5 transition-all">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+    </svg>
+  </button>
+
+  <!-- BARRA LATERAL DERECHA: Datos y Controles -->
+  <aside id="right-sidebar" style="width: 0px;" class="h-full bg-slate-950/98 border-l border-slate-800 flex flex-col z-30 flex-shrink-0 relative transition-all-custom">
+    
+    <!-- Monitor de Datos -->
+    <div class="p-5 border-b border-slate-800">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Monitor de Datos</h3>
+          <button onclick="toggleRightSidebar(false)" class="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-all" title="Ocultar Panel">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+        <div class="space-y-3 font-mono bg-slate-900/40 p-4 rounded-xl border border-slate-900">
+            <div class="flex justify-between items-end">
+                <span class="text-[10px] text-slate-500">Corriente (I)</span>
+                <span id="live-I" class="text-xs font-bold text-physicsCyan">5.0 A</span>
+            </div>
+            <div class="flex justify-between items-end">
+                <span class="text-[10px] text-slate-500">Radio de Lazo (R)</span>
+                <span id="live-R" class="text-xs font-bold text-physicsIndigo">3.0 m</span>
+            </div>
+            <div class="flex justify-between items-end">
+                <span class="text-[10px] text-slate-500">Campo Magnético |B|</span>
+                <span id="live-B" class="text-xs font-bold text-physicsGreen">0.150 T</span>
+            </div>
+            <div class="flex justify-between items-end">
+                <span class="text-[10px] text-slate-500">Circulación ($\oint \vec{B}\cdot d\vec{l}$)</span>
+                <span id="live-circ" class="text-xs font-bold text-white">1.41</span>
+            </div>
+            <div class="pt-2 border-t border-slate-800/80 flex justify-between items-end">
+                <span class="text-[10px] text-slate-500">Posición Sonda</span>
+                <span id="live-pos" class="text-[10px] font-bold text-slate-300">(3.0, 0.0)</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controles Dinámicos -->
+    <div class="flex-grow overflow-y-auto p-5 custom-scroll space-y-6">
+        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Ajustes del Laboratorio</h3>
+        
+        <!-- Slider I -->
+        <div class="space-y-3">
+            <div class="flex justify-between">
+                <label class="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Intensidad ($I$)</label>
+                <span id="slider-I-val" class="text-xs font-mono text-physicsCyan font-bold">5.0 A</span>
+            </div>
+            <input type="range" id="param-I" min="-10" max="10" step="0.5" value="5" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-physicsCyan">
+        </div>
+
+        <!-- Slider R -->
+        <div class="space-y-3">
+            <div class="flex justify-between">
+                <label class="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Radio del Camino ($R$)</label>
+                <span id="slider-R-val" class="text-xs font-mono text-physicsIndigo font-bold">3.0 m</span>
+            </div>
+            <input type="range" id="param-R" min="1.0" max="6.0" step="0.1" value="3.0" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-physicsIndigo">
+        </div>
+
+        <!-- Slider Angle -->
+        <div class="space-y-3">
+            <div class="flex justify-between">
+                <label class="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Ángulo Sonda ($\theta$)</label>
+                <span id="slider-angle-val" class="text-xs font-mono text-physicsAmber font-bold">0°</span>
+            </div>
+            <input type="range" id="param-angle" min="0" max="360" step="1" value="0" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-physicsAmber">
+        </div>
+
+        <!-- Toggles -->
+        <div class="space-y-3 pt-4 border-t border-slate-800">
+            <label class="flex items-center justify-between text-[11px] text-slate-400 cursor-pointer group">
+                <span>Ver Líneas de Campo</span>
+                <input type="checkbox" id="show-field-lines" checked class="w-4 h-4 bg-slate-800 border-slate-700 rounded accent-physicsCyan">
+            </label>
+            <label class="flex items-center justify-between text-[11px] text-slate-400 cursor-pointer">
+                <span>Giro Automático Sonda</span>
+                <input type="checkbox" id="auto-rotate-probe" class="w-4 h-4 bg-slate-800 border-slate-700 rounded accent-physicsAmber">
+            </label>
+            <label class="flex items-center justify-between text-[11px] text-slate-400 cursor-pointer">
+                <span>Indicador Ángulo Recto ($90^\circ$)</span>
+                <input type="checkbox" id="show-right-angle" checked class="w-4 h-4 bg-slate-800 border-slate-700 rounded accent-physicsGreen">
+            </label>
+            <label class="flex items-center justify-between text-[11px] text-slate-400 cursor-pointer">
+                <span>Movimiento de Cargas en Cable</span>
+                <input type="checkbox" id="show-current-flow" checked class="w-4 h-4 bg-slate-800 border-slate-700 rounded accent-red-500">
+            </label>
+        </div>
+    </div>
+
+    <!-- Footer Side -->
+    <div class="p-5 bg-slate-950 text-[9px] text-slate-600 text-center border-t border-slate-800 flex-shrink-0">
+        AmpèreLab 3D v2.3 <br> Simulación Física de Alto Rendimiento
+    </div>
+  </aside>
+
+  <!-- Script del Simulador -->
+  <script>
+    let scene, camera, renderer, controls, viewport;
+    let wireMesh, currentParticles;
+    let fieldLinesGroup, integrationLoopMesh, probeSphere;
+    let vectorRadialArrow, vectorFieldArrow, rightAngleBox;
+    
+    // Configuración de visualización de circulación magnética
+    let fieldParticlesGroup;
+    const orbitsData = [
+      { r: 1.5, count: 12 },
+      { r: 3.0, count: 24 },
+      { r: 4.5, count: 32 },
+      { r: 6.0, count: 40 }
+    ];
+    // Guardará la posición angular inicial y actual de cada partícula de campo
+    const fieldParticles = []; 
+
+    // Incrementamos el conteo a 220 para un flujo denso y hermoso
+    const particleCount = 220;
+    const scaleFactorB = 0.45;
+
+    // Manejo de estado del panel matemático
+    let mathPanelOpen = true;
+
+    window.onload = function() {
+      renderMathInElement(document.body, {
+        delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]
+      });
+      initSim();
+      animate();
+    };
+
+    function initSim() {
+      viewport = document.getElementById('sim-viewport');
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color('#020617');
+
+      camera = new THREE.PerspectiveCamera(40, viewport.clientWidth / viewport.clientHeight, 0.1, 100);
+      camera.position.set(8, 7, 10);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+      renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      viewport.appendChild(renderer.domElement);
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+
+      // Luces de la escena
+      scene.add(new THREE.AmbientLight(0xffffff, 0.45));
+      const light = new THREE.DirectionalLight(0xffffff, 0.9);
+      light.position.set(5, 10, 7);
+      scene.add(light);
+
+      // Grilla horizontal de apoyo
+      const grid = new THREE.GridHelper(20, 20, 0x1e293b, 0x0f172a);
+      scene.add(grid);
+
+      // Conductor de corriente: cilindro translúcido (efecto vidrio/vacío)
+      const wireGeom = new THREE.CylinderGeometry(0.12, 0.12, 14, 20);
+      const wireMat = new THREE.MeshStandardMaterial({ 
+        color: 0x475569, 
+        metalness: 0.9, 
+        roughness: 0.1,
+        transparent: true,
+        opacity: 0.35,
+        depthWrite: false // Evita fallos de oclusión 3D
+      });
+      wireMesh = new THREE.Mesh(wireGeom, wireMat);
+      scene.add(wireMesh);
+
+      // Partículas de corriente que fluyen verticalmente
+      const pGeom = new THREE.BufferGeometry();
+      const pPos = new Float32Array(particleCount * 3);
+      for(let i=0; i<particleCount; i++) {
+        const r = Math.random() * 0.09;
+        const theta = Math.random() * Math.PI * 2;
+        pPos[i*3] = Math.cos(theta) * r;
+        pPos[i*3+1] = (Math.random()-0.5)*14;
+        pPos[i*3+2] = Math.sin(theta) * r;
+      }
+      pGeom.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+      
+      currentParticles = new THREE.Points(pGeom, new THREE.PointsMaterial({ 
+        color: 0xff5500, // Naranja eléctrico brillante
+        size: 0.18, 
+        transparent: true, 
+        opacity: 0.95,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      }));
+      scene.add(currentParticles);
+
+      // Lazo de integración (Círculo de radio R ajustable en plano XZ horizontal)
+      integrationLoopMesh = new THREE.Mesh(
+        new THREE.RingGeometry(0.98, 1.02, 64).rotateX(Math.PI/2),
+        new THREE.MeshBasicMaterial({ color: 0x6366f1, side: THREE.DoubleSide, transparent: true, opacity: 0.7 })
+      );
+      scene.add(integrationLoopMesh);
+
+      // Sonda de medición móvil
+      probeSphere = new THREE.Mesh(
+        new THREE.SphereGeometry(0.14, 16, 16), 
+        new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xf59e0b, emissiveIntensity: 0.6 })
+      );
+      scene.add(probeSphere);
+
+      // Vectores de ayuda
+      vectorRadialArrow = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 1, 0x06b6d4, 0.3, 0.15);
+      scene.add(vectorRadialArrow);
+
+      vectorFieldArrow = new THREE.ArrowHelper(new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,0), 1, 0x10b981, 0.3, 0.15);
+      scene.add(vectorFieldArrow);
+
+      // Caja de indicador de 90 grados en la sonda (Ortogonalidad)
+      const boxGeom = new THREE.BufferGeometry();
+      boxGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(12), 3));
+      rightAngleBox = new THREE.Line(boxGeom, new THREE.LineBasicMaterial({ color: 0x10b981, linewidth: 2 }));
+      scene.add(rightAngleBox);
+
+      // Crear grupo para las líneas de campo circulares estáticas
+      fieldLinesGroup = new THREE.Group();
+      scene.add(fieldLinesGroup);
+      createFieldLines();
+
+      // Crear grupo para las partículas de flujo magnético en circulación
+      fieldParticlesGroup = new THREE.Group();
+      scene.add(fieldParticlesGroup);
+      createFieldParticles();
+
+      // Setup de ResizeObserver para redimensionado impecable de Three.js
+      const resizeObserver = new ResizeObserver(() => {
+        if (renderer && camera && viewport) {
+          camera.aspect = viewport.clientWidth / viewport.clientHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+        }
+      });
+      resizeObserver.observe(viewport);
+
+      // Sincronizar eventos de inputs de sliders principales y flotantes
+      setupInputsSync();
+    }
+
+    // Crea círculos concéntricos guía en 3 alturas diferentes para simular 3D
+    function createFieldLines() {
+      const heights = [-3, 0, 3];
+      heights.forEach(h => {
+        orbitsData.forEach(orbit => {
+          const curve = new THREE.EllipseCurve(0, 0, orbit.r, orbit.r).getPoints(64);
+          const geom = new THREE.BufferGeometry().setFromPoints(curve.map(p => new THREE.Vector3(p.x, h, p.y)));
+          const mat = new THREE.LineBasicMaterial({ 
+            color: 0x06b6d4, 
+            transparent: true, 
+            opacity: 0.15 
+          });
+          fieldLinesGroup.add(new THREE.Line(geom, mat));
+        });
+      });
+    }
+
+    // Inicializa el sistema de partículas que viajan alrededor del cable
+    function createFieldParticles() {
+      const heights = [-3, 0, 3];
+      
+      heights.forEach(h => {
+        orbitsData.forEach(orbit => {
+          const geometry = new THREE.BufferGeometry();
+          const positions = new Float32Array(orbit.count * 3);
+          const initialAngles = [];
+
+          for(let i = 0; i < orbit.count; i++) {
+            const angle = (i / orbit.count) * Math.PI * 2;
+            initialAngles.push(angle);
+
+            positions[i*3] = Math.cos(angle) * orbit.r;
+            positions[i*3+1] = h;
+            positions[i*3+2] = Math.sin(angle) * orbit.r;
+          }
+
+          geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+          
+          const material = new THREE.PointsMaterial({
+            color: 0x06b6d4,
+            size: 0.11,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending
+          });
+
+          const pointsMesh = new THREE.Points(geometry, material);
+          fieldParticlesGroup.add(pointsMesh);
+
+          fieldParticles.push({
+            mesh: pointsMesh,
+            r: orbit.r,
+            height: h,
+            count: orbit.count,
+            angles: initialAngles
+          });
+        });
+      });
+    }
+
+    // Vincula y sincroniza sliders duplicados (Barra lateral e inputs de ayuda)
+    function setupInputsSync() {
+      const sliderI = document.getElementById('param-I');
+      const floatI = document.getElementById('float-I');
+      const sliderR = document.getElementById('param-R');
+      const floatR = document.getElementById('float-R');
+      const sliderAngle = document.getElementById('param-angle');
+
+      sliderI.addEventListener('input', (e) => {
+        floatI.value = e.target.value;
+        updateValues();
+      });
+      floatI.addEventListener('input', (e) => {
+        sliderI.value = e.target.value;
+        updateValues();
+      });
+
+      sliderR.addEventListener('input', (e) => {
+        floatR.value = e.target.value;
+        updateValues();
+      });
+      floatR.addEventListener('input', (e) => {
+        sliderR.value = e.target.value;
+        updateValues();
+      });
+
+      sliderAngle.addEventListener('input', updateValues);
+
+      document.getElementById('show-field-lines').addEventListener('change', updateValues);
+      document.getElementById('show-right-angle').addEventListener('change', updateValues);
+      document.getElementById('show-current-flow').addEventListener('change', updateValues);
+    }
+
+    // Realiza los cálculos físicos de vectores y actualiza las posiciones 3D
+    function updateValues() {
+      const I = parseFloat(document.getElementById('param-I').value);
+      const R = parseFloat(document.getElementById('param-R').value);
+      const angle = parseInt(document.getElementById('param-angle').value);
+      const angleRad = (angle * Math.PI) / 180;
+
+      document.getElementById('slider-I-val').innerText = `${I.toFixed(1)} A`;
+      document.getElementById('slider-R-val').innerText = `${R.toFixed(1)} m`;
+      document.getElementById('slider-angle-val').innerText = `${angle}°`;
+      document.getElementById('float-I-val').innerText = `${I.toFixed(1)} A`;
+      document.getElementById('float-R-val').innerText = `${R.toFixed(1)} m`;
+
+      document.getElementById('live-I').innerText = `${I.toFixed(1)} A`;
+      document.getElementById('live-R').innerText = `${R.toFixed(1)} m`;
+      
+      const BVal = Math.abs(I * scaleFactorB / R);
+      document.getElementById('live-B').innerText = `${BVal.toFixed(3)} T`;
+      document.getElementById('live-circ').innerText = `${(Math.PI * 2 * scaleFactorB * I).toFixed(2)} T·m`;
+
+      const x = Math.cos(angleRad) * R;
+      const z = Math.sin(angleRad) * R;
+      document.getElementById('live-pos').innerText = `(${x.toFixed(1)}, ${z.toFixed(1)})`;
+
+      integrationLoopMesh.scale.set(R, 1, R);
+      probeSphere.position.set(x, 0, z);
+
+      vectorRadialArrow.setDirection(new THREE.Vector3(x,0,z).normalize());
+      vectorRadialArrow.setLength(R, 0.3, 0.15);
+
+      // CORRECCIÓN SENSATA: Se invierte el signo para que corriente saliente (I > 0) sea antihorario
+      const sign = I >= 0 ? -1 : 1;
+      const tDir = new THREE.Vector3(-z, 0, x).normalize().multiplyScalar(sign);
+      vectorFieldArrow.position.set(x, 0, z);
+      vectorFieldArrow.setDirection(tDir);
+      vectorFieldArrow.setLength(Math.max(0.1, BVal * 2.5), 0.2, 0.1);
+      vectorFieldArrow.visible = I !== 0;
+
+      // Calcular escuadra de ángulo recto
+      if(I !== 0) {
+        const d = 0.3;
+        const p0 = new THREE.Vector3(x,0,z);
+        const uR = new THREE.Vector3(x,0,z).normalize();
+        const uT = tDir.clone();
+        const p1 = p0.clone().sub(uR.multiplyScalar(d));
+        const p2 = p1.clone().add(uT.clone().multiplyScalar(d));
+        const p3 = p0.clone().add(uT.clone().multiplyScalar(d));
+
+        const pos = rightAngleBox.geometry.attributes.position.array;
+        [p1,p2, p2,p3].forEach((p, i) => { pos[i*3]=p.x; pos[i*3+1]=p.y; pos[i*3+2]=p.z; });
+        rightAngleBox.geometry.attributes.position.needsUpdate = true;
+      }
+      
+      const showField = document.getElementById('show-field-lines').checked;
+      fieldLinesGroup.visible = showField;
+      fieldParticlesGroup.visible = showField;
+      rightAngleBox.visible = document.getElementById('show-right-angle').checked && I !== 0;
+      currentParticles.visible = document.getElementById('show-current-flow').checked;
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const I = parseFloat(document.getElementById('param-I').value);
+      
+      if(document.getElementById('auto-rotate-probe').checked && I !== 0) {
+        const slider = document.getElementById('param-angle');
+        // Sincronización del giro de la sonda automática con el nuevo sentido invertido
+        slider.value = (parseInt(slider.value) + (I > 0 ? -1 : 1) + 360) % 360;
+        updateValues();
+      }
+
+      if(currentParticles.visible) {
+        const pos = currentParticles.geometry.attributes.position.array;
+        for(let i=0; i<particleCount; i++) {
+          pos[i*3+1] += I * 0.015;
+          if(pos[i*3+1] > 7) pos[i*3+1] = -7;
+          if(pos[i*3+1] < -7) pos[i*3+1] = 7;
+        }
+        currentParticles.geometry.attributes.position.needsUpdate = true;
+      }
+
+      if(fieldParticlesGroup.visible && I !== 0) {
+        fieldParticles.forEach(orbit => {
+          const positions = orbit.mesh.geometry.attributes.position.array;
+          // CORRECCIÓN SENSATA: Se multiplica por -I para que las partículas viajen en sentido antihorario con corriente saliente
+          const angularSpeed = (-I * 0.006) / Math.pow(orbit.r, 1.25);
+
+          for(let i = 0; i < orbit.count; i++) {
+            orbit.angles[i] += angularSpeed;
+            positions[i*3] = Math.cos(orbit.angles[i]) * orbit.r;
+            positions[i*3+2] = Math.sin(orbit.angles[i]) * orbit.r;
+          }
+          orbit.mesh.geometry.attributes.position.needsUpdate = true;
+        });
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    function resetCamera() { 
+      camera.position.set(8, 7, 10); 
+      controls.target.set(0,0,0); 
+      controls.update();
+    }
+
+    // MÉTODO INTERACTIVO CLAVE: Abre/Cierra el panel matemático a pantalla completa
+    function toggleMathPanel() {
+      const sidebar = document.getElementById('left-sidebar');
+      const toggleBtn = document.getElementById('toggle-tab');
+      const openLeftBtn = document.getElementById('btn-open-left');
+      const floatingCtrls = document.getElementById('floating-controls');
+      const rightSidebar = document.getElementById('right-sidebar');
+
+      if (mathPanelOpen) {
+        // RETROCEDER PANEL (Ocultar teoría y abrir simulador)
+        sidebar.style.width = '0px';
+        sidebar.style.borderRightWidth = '0px';
+        toggleBtn.classList.add('hidden');
+        
+        // Revelar botón flotante de retorno de teoría
+        openLeftBtn.classList.remove('hidden');
+        
+        // Abrir mandos y monitor de datos lateral derecho
+        toggleRightSidebar(true);
+        
+        mathPanelOpen = false;
+      } else {
+        // EXPANDIR PANEL (Mostrar teoría en pantalla completa)
+        sidebar.style.width = '100vw';
+        sidebar.style.borderRightWidth = '1px';
+        toggleBtn.classList.remove('hidden');
+        
+        // Ocultar botón flotante izquierdo
+        openLeftBtn.classList.add('hidden');
+        
+        // Ocultar barra lateral derecha y controles auxiliares
+        toggleRightSidebar(false);
+        if (floatingCtrls) floatingCtrls.classList.add('hidden');
+
+        mathPanelOpen = true;
+      }
+      setTimeout(onResize, 500);
+    }
+
+    function toggleRightSidebar(show) {
+      const sidebar = document.getElementById('right-sidebar');
+      const btnOpen = document.getElementById('btn-open-right');
+      const floatingCtrls = document.getElementById('floating-controls');
+      if(show) {
+        sidebar.style.width = '320px';
+        sidebar.style.borderLeftWidth = '1px';
+        btnOpen.classList.add('hidden');
+        floatingCtrls.classList.add('hidden');
+      } else {
+        sidebar.style.width = '0px';
+        sidebar.style.borderLeftWidth = '0px';
+        btnOpen.classList.remove('hidden');
+        if(!mathPanelOpen) {
+          floatingCtrls.classList.remove('hidden');
+        }
+      }
+    }
+
+    function toggleFullScreen() {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(err => {
+            console.error("Error al intentar activar pantalla completa:", err);
+          });
+        } else {
+          document.exitFullscreen();
+        }
+    }
+
+    function onResize() {
+      if (renderer && camera && viewport) {
+        camera.aspect = viewport.clientWidth / viewport.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+      }
+    }
+  </script>
+</body>
+</html>
+
+
